@@ -1,6 +1,7 @@
 #include "protocol.hpp"
 GtkApplication *app;
 
+
 static void
 activate (GtkApplication* app,
           gpointer        user_data)
