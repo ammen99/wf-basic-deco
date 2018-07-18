@@ -1,9 +1,10 @@
 wayland_scanner = find_program('wayland-scanner')
+wl_protocol_dir = wayland_protos.get_pkgconfig_variable('pkgdatadir')
 
 wayland_scanner_code = generator(
 	wayland_scanner,
 	output: '@BASENAME@-protocol.c',
-	arguments: ['code', '@INPUT@', '@OUTPUT@'],
+	arguments: ['private-code', '@INPUT@', '@OUTPUT@'],
 )
 
 wayland_scanner_client = generator(
@@ -13,6 +14,7 @@ wayland_scanner_client = generator(
 )
 
 client_protocols = [
+	[wl_protocol_dir, 'stable/xdg-shell/xdg-shell.xml'],
     'wf-decorator.xml'
 ]
 

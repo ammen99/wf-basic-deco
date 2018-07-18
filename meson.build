@@ -13,11 +13,10 @@ project(
 	],
 )
 
-gtk3 = dependency('gtk+-3.0')
+cairo = dependency('cairo')
 wayland_client = dependency('wayland-client')
+wayland_protos = dependency('wayland-protocols')
+wayland_cursor = dependency('wayland-cursor')
 
 subdir('proto')
-
-deco = executable('wf-decorator',
-    ['main.cpp', 'protocol.cpp'],
-    dependencies: [gtk3, wayland_client, wf_protos])
+subdir('src')

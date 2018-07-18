@@ -11,6 +11,12 @@
             <arg name="right"  type="uint"/>
         </request>
 
+        <event name="resize">
+            <arg name="view" type="uint"/>
+            <arg name="width" type="int"/>
+            <arg name="height" type="int"/>
+        </event>
+
         <event name="title_changed">
             <arg name="decoration" type="uint"/>
             <arg name="new_title" type="string"/>
