@@ -1,6 +1,10 @@
+#include <map>
+#include <iostream>
+
 #include "decoration-protocol.hpp"
 #include "window.hpp"
 #include "../frame.hpp"
+
 
 std::map<uint32_t, wayfire_window*> view_to_decor;
 static void create_new_decoration(void *data, wf_decorator_manager *, uint32_t view)

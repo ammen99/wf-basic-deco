@@ -1,5 +1,5 @@
 libwfwindowutil = static_library('wfwindow',
-    ['window.cpp', 'shm-surface.cpp', 'input.cpp', 'decoration-protocol.cpp'],
+    ['window.cpp', 'display.cpp', 'shm-surface.cpp', 'input.cpp', 'decoration-protocol.cpp'],
     dependencies: [cairo, wf_protos])
 
 

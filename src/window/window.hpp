@@ -1,37 +1,9 @@
-#ifndef COMMON_HPP
-#define COMMON_HPP
+#ifndef WINDOW_HPP
+#define WINDOW_HPP
 
-#include <wayland-client.h>
-#include "xdg-shell-client-protocol.h"
-#include "decoration-protocol.hpp"
-#include <iostream>
+#include "display.hpp"
 #include <functional>
-#include <vector>
-#include <map>
 #include <cairo.h>
-
-struct wayfire_output;
-struct wl_cursor;
-struct wayfire_display
-{
-    wl_compositor *compositor = nullptr;
-    wl_display    *display = nullptr;
-    wl_shm        *shm = nullptr;
-    wl_seat       *seat = nullptr;
-
-    xdg_wm_base *wm_base = nullptr;
-
-    wayfire_display();
-    ~wayfire_display();
-
-    wl_cursor *cursor = nullptr;
-    wl_surface *cursor_surface = nullptr;
-
-    bool load_cursor();
-    void show_default_cursor(uint32_t serial);
-
-    wf_decorator_manager *decorator_manager;
-};
 
 struct wf_shm_pool;
 struct wayfire_window
@@ -75,4 +47,4 @@ struct wayfire_window
 /* the focused windows */
 extern wayfire_window *current_touch_window, *current_pointer_window;
 
-#endif /* end of include guard: COMMON_HPP */
+#endif /* end of include guard: WINDOW_HPP */
