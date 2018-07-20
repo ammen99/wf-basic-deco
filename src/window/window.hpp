@@ -30,7 +30,8 @@ struct wayfire_window
     wf_shm_pool *pool;
 
     void *frame_data;
-    cairo_surface_t *cairo_surface;
+    cairo_t *cr;
+    cairo_surface_t *cairo_surface = NULL;
 
     std::function<void(int, int)> resize_request;
     std::function<void()> close_request;

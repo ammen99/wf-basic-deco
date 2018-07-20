@@ -17,6 +17,7 @@
 #include "window.hpp"
 #include "shm-surface.hpp"
 #include "shm-util.cpp"
+#include "../frame.hpp"
 
 void wf_shm_pool::init_pool(size_t size)
 {
@@ -94,7 +95,16 @@ cairo_surface_t* wf_shm_pool::create_cairo_surface(int width, int height)
 
 void wayfire_window::damage_commit()
 {
-    wl_surface_attach(surface, get_buffer_from_cairo_surface(cairo_surface),0,0);
-    wl_surface_damage(surface, 0, 0, width, height);
+    auto m1 = frame_get_margin(this);
+    auto m2 = frame_get_shadow_margin(this);
+
+    wl_surface_attach(surface, get_buffer_from_cairo_surface(cairo_surface), 0, 0);
+
+    wl_surface_damage(surface, 0, 0, width, m1.top + m2.top);
+    wl_surface_damage(surface, 0, 0, m1.left + m2.left, height);
+    wl_surface_damage(surface, width - m1.right - m2.right, 0, m1.right + m2.right, height);
+    wl_surface_damage(surface, 0, height - m1.bottom - m2.bottom, width, m1.bottom + m2.bottom);
+
+    //wl_surface_damage(surface, 0, 0, width, height);
     wl_surface_commit(surface);
 }

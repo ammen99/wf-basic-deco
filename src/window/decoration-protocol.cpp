@@ -15,16 +15,16 @@ static void create_new_decoration(void *data, wf_decorator_manager *, uint32_t v
     std::string title = "__wf_decorator:" + std::to_string(view);
 
     auto window = new wayfire_window(display, title);
+    init_frame_for_window(window);
+
     window->resize_request = [=] (int width, int height)
     {
         window->resize(width, height);
-        init_frame_for_window(window);
 
-        int top, bottom, left, right;
-        frame_get_shadow_margin(window, top, bottom, left, right);
-        xdg_surface_set_window_geometry(window->xsurface, left, top,
-                                        window->width - left - right,
-                                        window->height - top - bottom);
+        auto m = frame_get_shadow_margin(window);
+        xdg_surface_set_window_geometry(window->xsurface, m.left, m.top,
+                                        window->width  - m.left - m.right,
+                                        window->height - m.top  - m.bottom);
         paint_frame(window);
         window->damage_commit();
     };
@@ -44,8 +44,8 @@ void view_resized(void *data,
                   int32_t width,
                   int32_t height)
 {
-    //auto window = view_to_decor[view];
-    //gtk_window_resize(GTK_WINDOW(window), width, height);
+    auto window = view_to_decor[view];
+    window->resize_request(width, height);
 }
 
 static void title_changed(void *data,

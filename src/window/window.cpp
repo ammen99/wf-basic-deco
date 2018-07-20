@@ -73,8 +73,13 @@ void wayfire_window::resize(int width, int height)
         pool = new wf_shm_pool(display->shm);
 
     if (cairo_surface)
+    {
+        cairo_destroy(cr);
         cairo_surface_destroy(cairo_surface);
+    }
+
     cairo_surface = pool->create_cairo_surface(width, height);
+    cr = cairo_create(cairo_surface);
 
     this->width = width;
     this->height = height;
