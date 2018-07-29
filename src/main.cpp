@@ -6,6 +6,7 @@ int main()
 
     while (wl_display_dispatch(display->display) != -1)
     {
+        test
         // blank
     }
     delete display;

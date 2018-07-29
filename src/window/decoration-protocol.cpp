@@ -31,7 +31,7 @@ static void create_new_decoration(void *data, wf_decorator_manager *, uint32_t v
 
     window->close_request = [=] ()
     {
-        // TODO
+        delete window;
     };
 
 
