@@ -8,30 +8,24 @@
 wl_display *display;
 
 std::map<uint32_t, GtkWidget*> view_to_decor;
-static void create_new_decoration (void *data,
-                               wf_decorator_manager *manager,
-                               uint32_t view)
+static void create_new_decoration(void*, wf_decorator_manager*, uint32_t view)
 {
     std::cout << "create new decoration" << std::endl;
     auto window = create_deco_window("__wf_decorator:" + std::to_string(view));
     view_to_decor[view] = window;
 }
 
-static void title_changed(void *data,
-                          wf_decorator_manager *wf_decorator_manager,
-                          uint32_t view,
-                          const char *new_title)
+static void title_changed(void*,
+    wf_decorator_manager*, uint32_t view, const char *new_title)
 {
     set_title(view_to_decor[view], new_title);
 }
-
 
 const wf_decorator_manager_listener decorator_listener =
 {
     create_new_decoration,
     title_changed
 };
-
 
 void registry_add_object(void*, struct wl_registry *registry, uint32_t name,
         const char *interface, uint32_t)
@@ -61,7 +55,6 @@ static struct wl_registry_listener registry_listener =
 void setup_protocol(GdkDisplay *displ)
 {
     auto display = gdk_wayland_display_get_wl_display(displ);
-
     auto registry = wl_display_get_registry(display);
 
     wl_registry_add_listener(registry, &registry_listener, NULL);
