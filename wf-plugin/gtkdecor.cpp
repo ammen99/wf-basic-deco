@@ -1,17 +1,33 @@
+// This plugin is the interface between the decorator client and Wayfire. It has several functions:
+//
+// - When a new view is mapped, it notifies the decorator client via a custom protocol that a new decoration
+//   is required.
+// - When a new decoration toplevel is created, we attach it to the main view with several nodes:
+//   First, we attach the translation node, which has a child mask node, whose child is the decoration surface.
+//   The translation node is responsible for setting the position of the decoration relative to the main view.
+//   The mask node cuts out the middle of the decoration so that transparent views remain transparent.
+//   The main decoration surface contains the actual decorations.
+//
+// - On each transaction involving a decorated view, the plugin adds a decoration object associated with the
+//   view to the transaction. The transaction object resizes the decoration on commit, and is ready when the
+//   decoration surface also resizes to the new size. Special care should be taken for the cases where the
+//   main view does not obey the compositor-requested size: in those cases, the decoration needs to be resized
+//   again to the final size of the main view.
+#include <memory>
 #include <wayfire/core.hpp>
 #include <wayfire/geometry.hpp>
 #include <wayfire/nonstd/wlroots-full.hpp>
 #include <wayfire/object.hpp>
 #include <wayfire/plugin.hpp>
 #include <wayfire/render-manager.hpp>
-#include <wayfire/decorator.hpp>
 #include <wayfire/debug.hpp>
 #include <wayfire/opengl.hpp>
 #include <wayfire/scene-render.hpp>
 #include <wayfire/scene.hpp>
-#include <wayfire/toplevel.hpp>
+#include <wayfire/toplevel-view.hpp>
 #include <wayfire/scene-operations.hpp>
 
+#include <wayfire/toplevel.hpp>
 #include <wayfire/txn/transaction-object.hpp>
 #include <wayfire/txn/transaction-manager.hpp>
 
@@ -34,6 +50,14 @@ static constexpr int margin_top = 60;
 static constexpr int margin_right = 31;
 static constexpr int margin_bottom = 35;
 
+static constexpr wf::decoration_margins_t deco_margins =
+{
+    .left = 5,
+    .right = 5,
+    .bottom = 5,
+    .top = 38,
+};
+
 using decoration_node_t = std::shared_ptr<wf::scene::wlr_surface_node_t>;
 
 std::ostream& operator << (std::ostream& out, const wf::dimensions_t& dims)
@@ -41,20 +65,6 @@ std::ostream& operator << (std::ostream& out, const wf::dimensions_t& dims)
     out << dims.width << "x" << dims.height;
     return out;
 }
-
-class gtk3_frame_t : public wf::decorator_frame_t_t
-{
-  public:
-    wf::decoration_margins_t get_margins() final
-    {
-        return {
-            .left = 5,
-            .right = 5,
-            .bottom = 5,
-            .top = 38,
-        };
-    }
-};
 
 /**
  * A node which cuts out a part of its children (visually).
@@ -244,6 +254,7 @@ class gtk3_decoration_object_t : public wf::txn::transaction_object_t
             return;
         }
 
+        set_pending_size(wf::dimensions(decorated_toplevel->pending().geometry));
         deco_state = gtk3_decoration_tx_state::START;
 
         LOGI("Committing with ", pending);
@@ -253,6 +264,10 @@ class gtk3_decoration_object_t : public wf::txn::transaction_object_t
         if (wf::dimensions(box) != pending)
         {
             wlr_xdg_toplevel_set_size(toplevel, pending.width, pending.height);
+        } else
+        {
+            wf::txn::emit_object_ready(this);
+            return;
         }
 
         committed = pending;
@@ -270,13 +285,17 @@ class gtk3_decoration_object_t : public wf::txn::transaction_object_t
         recompute_mask();
     }
 
+    std::shared_ptr<wf::toplevel_t> decorated_toplevel;
+
   public:
-    gtk3_decoration_object_t(wlr_xdg_toplevel *toplevel, decoration_node_t deco_node,
-        std::weak_ptr<gtk3_mask_node_t> mask)
+    gtk3_decoration_object_t(
+        wlr_xdg_toplevel *toplevel, decoration_node_t deco_node,
+        std::weak_ptr<gtk3_mask_node_t> mask, std::shared_ptr<wf::toplevel_t> decorated_toplevel)
     {
         this->toplevel = toplevel;
         this->deco_node = deco_node;
         this->mask_node = mask;
+        this->decorated_toplevel = decorated_toplevel;
 
         on_commit.set_callback([=] (void*)
         {
@@ -407,12 +426,12 @@ class gtk3_decoration_plugin : public wf::plugin_interface_t
         auto id_str = std::string(toplevel->title).substr(gtk_decorator_prefix.length());
         auto id = std::stoul(id_str.c_str());
 
-        wayfire_view target;
+        wayfire_toplevel_view target;
         for (auto& v : wf::get_core().get_all_views())
         {
             if (v->get_id() == id)
             {
-                target = v;
+                target = toplevel_cast(v);
             }
         }
 
@@ -440,13 +459,14 @@ class gtk3_decoration_plugin : public wf::plugin_interface_t
         decoration_root_node->set_children_list({mask_node});
 
         auto deco_surf = std::make_shared<wf::scene::wlr_surface_node_t>(toplevel->base->surface, false);
-        data->decoration = std::make_shared<gtk3_decoration_object_t>(toplevel, deco_surf, mask_node);
+        data->decoration = std::make_shared<gtk3_decoration_object_t>(
+            toplevel, deco_surf, mask_node, target->toplevel());
         mask_node->set_children_list({deco_surf});
-  //      decoration_root_node->set_children_list({deco_surf});
         wf::scene::add_back(target->get_surface_root_node(), decoration_root_node);
 
         target->toplevel()->connect(&on_object_ready);
-        target->set_decoration(std::make_unique<gtk3_frame_t>());
+        // Trigger a new transaction to set margins
+        wf::get_core().tx_manager->schedule_object(target->toplevel());
     };
 
     wf::signal::connection_t<wf::view_mapped_signal> on_mapped = [=] (wf::view_mapped_signal *ev)
@@ -464,16 +484,18 @@ class gtk3_decoration_plugin : public wf::plugin_interface_t
         auto objs = ev->tx->get_objects();
         for (auto& obj : objs)
         {
-            if (auto toplvl = dynamic_cast<wf::toplevel_t*>(obj.get()))
+            if (auto toplevel = std::dynamic_pointer_cast<wf::toplevel_t>(obj))
             {
-                auto deco = toplvl->get_data_safe<gtk3_toplevel_custom_data>();
-                if (deco->decoration == nullptr)
+                // First check whether the toplevel already has decoration
+                // In that case, we should just set the correct margins
+                if (auto deco = toplevel->get_data<gtk3_toplevel_custom_data>())
                 {
-                    return;
+                    // One thing here: we hardcode the deco_margins. Ideally, these should come from a
+                    // protocol
+                    toplevel->pending().margins =
+                        toplevel->pending().fullscreen ? wf::decoration_margins_t{0, 0, 0, 0} : deco_margins;
+                    ev->tx->add_object(deco->decoration);
                 }
-
-                ev->tx->add_object(deco->decoration);
-                deco->decoration->set_pending_size(wf::dimensions(toplvl->pending().geometry));
             }
         }
     };
